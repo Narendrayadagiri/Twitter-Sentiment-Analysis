@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Sentiment Analysis</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #e1f5fe 0%, #ffffff 100%); /* Light blue Twitter gradient */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Header with Twitter Bird */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .header img {
+            width: 80px; /* Increased size */
+            height: 80px;
+        }
+
+        h2 {
+            color: #1da1f2; /* Twitter blue */
+            font-size: 2.8em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+            margin: 0;
+        }
+
+        /* Card Container for Input */
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #1da1f2; /* Twitter blue */
+            box-shadow: 0 0 5px rgba(29, 161, 242, 0.3);
+        }
+
+        button {
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #1da1f2, #00acee); /* Twitter gradient */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background: linear-gradient(45deg, #00acee, #1da1f2);
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        button:disabled .spinner {
+            display: inline-block;
+        }
+
+        button:disabled span {
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Result Styles */
+        #result {
+            font-size: 1.6em;
+            min-height: 1.6em;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        #result.show {
+            opacity: 1;
+        }
+
+        #result b {
+            padding: 8px 15px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        #result.positive b {
+            color: white;
+            background-color: #4CAF50;
+        }
+
+        #result.negative b {
+            color: white;
+            background-color: #f44336;
+        }
+
+        #result.neutral b {
+            color: white;
+            background-color: #9e9e9e;
+        }
+
+        #result.loading {
+            color: #1da1f2;
+            font-style: italic;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            h2 {
+                font-size: 2em;
+            }
+
+            .header img {
+                width: 50px; /* Smaller logo on mobile */
+                height: 50px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            .input-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            input[type="text"] {
+                width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            #result {
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="/static/twitter_bird.png" alt="Twitter Bird">
+        <h2>Twitter Sentiment Analysis</h2>
+    </div>
+    <div class="card">
+        <div class="input-container">
+            <input type="text" id="textInput" placeholder="Enter your tweet...">
+            <button onclick="analyzeSentiment()">
+                <span>Analyze</span>
+                <div class="spinner"></div>
+            </button>
+        </div>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        async function analyzeSentiment() {
+            let text = document.getElementById("textInput").value;
+            if (!text) {
+                alert("Please enter some text");
+                return;
+            }
+
+            // Show loading state
+            let resultDiv = document.getElementById("result");
+            resultDiv.className = "loading";
+            resultDiv.innerHTML = "Analyzing...";
+            resultDiv.classList.remove("show");
+
+            // Disable button during analysis
+            let button = document.querySelector("button");
+            button.disabled = true;
+
+            try {
+                let response = await fetch("/predict", {  // Updated to relative URL
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+
+                let data = await response.json();
+                resultDiv.className = data.sentiment.toLowerCase();
+                resultDiv.innerHTML = `Prediction: <b>${data.sentiment}</b>`;
+                resultDiv.classList.add("show");
+            } catch (error) {
+                console.error("Error:", error);
+                resultDiv.className = "";
+                resultDiv.innerHTML = "Error analyzing sentiment";
+                resultDiv.classList.add("show");
+            } finally {
+                // Re-enable button
+                button.disabled = false;
+            }
+        }
+    </script>
+
+</body>
+</html>
